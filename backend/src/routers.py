@@ -1,6 +1,6 @@
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, File, Form, UploadFile
 
-from src.contracts import RecsResult, RecsForm
+from src.contracts import RecsForm, RecsResult
 from src.utils.llm import get_recs
 from src.utils.pdf import parse_pdf
 
