@@ -1,5 +1,6 @@
-.env
+#.env
 .idea
 venv/
 .ruff_cache/
 __pycache__/
+uploads/

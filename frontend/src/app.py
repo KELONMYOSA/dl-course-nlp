@@ -1,14 +1,23 @@
 import asyncio
+import os
+import time
+from pathlib import Path
+
 import flet
+
+from src.utils import get_recs_pdf, get_recs_text
 
 
 async def main(page: flet.Page):
     page.title = "Team 26"
     page.horizontal_alignment = flet.CrossAxisAlignment.CENTER
     page.scroll = flet.ScrollMode.AUTO
+    selected_pdf = None
 
     async def on_refresh(e):
         vacancy_input_container.value = None
+        global selected_pdf
+        selected_pdf = None
         await on_text_select(None)
 
     page.on_connect = on_refresh
@@ -17,23 +26,75 @@ async def main(page: flet.Page):
         await page.clean_async()
         await page.add_async(view)
 
+    """
+    При нажатии на кнопку "Далее"
+    """
+
     async def on_submit(e):
+        submit_button.controls.append(flet.ProgressRing())
+        submit_button.controls[0].disabled = True
+        await page.update_async()
+
+        # Проверяем, что необходимые поля не пустые
+        global selected_pdf
+        cv_input_is_empty = True
+        cv_input_item = cv_input_container.controls[0]
+        if isinstance(cv_input_item, flet.TextField):
+            if cv_input_item.value:
+                cv_input_is_empty = False
+        else:
+            if selected_pdf:
+                cv_input_is_empty = False
+
+        if len(vacancy_input_container.value) < 1 or cv_input_is_empty:
+            submit_button.controls.pop(-1)
+            submit_button.controls[0].disabled = False
+            dlg = flet.AlertDialog(title=flet.Text("Необходимо заполнить поля с текстом вакансии и резюме!"))
+            page.dialog = dlg
+            dlg.open = True
+            await page.update_async()
+            return
+
+        # Получаем результаты из модели
+        if isinstance(cv_input_item, flet.TextField):
+            result = await get_recs_text(vacancy_input_container.value, cv_input_item.value)
+        else:
+            result = await get_recs_pdf(vacancy_input_container.value, selected_pdf)
+
+        # Если ошибка запроса
+        if result is None:
+            submit_button.controls.pop(-1)
+            submit_button.controls[0].disabled = False
+            dlg = flet.AlertDialog(title=flet.Text("Ошибка сервера!"))
+            page.dialog = dlg
+            dlg.open = True
+            await page.update_async()
+            return
+
+        # Загружаем страницу с результатами
+        submit_button.controls.pop(-1)
+        submit_button.controls[0].disabled = False
         await page.clean_async()
-        result_text = flet.TextField(label="Рекомендации", read_only=True, value=" ")
+        result_text = flet.TextField(label="Рекомендации", multiline=True, read_only=True, value=" ")
         await page.add_async(
             flet.Column(
                 width=page.width / 2, spacing=30, controls=[flet.FilledButton("Назад", on_click=on_back), result_text]
             )
         )
 
-        result = "Это импровизированный текст который выдает модель"
-        cur_result = ""
-
-        for char in result:
+        # Выводим посимвольно результат
+        score = result["score"]
+        text = result["recs"]
+        cur_text = ""
+        for char in text:
             await asyncio.sleep(0.01)
-            cur_result += char
-            result_text.value = cur_result
+            cur_text += char
+            result_text.value = cur_text
             await page.update_async()
+
+    """
+    При нажатии на кнопку "PDF"
+    """
 
     async def on_pdf_select(e):
         cv_input_text_button.disabled = False
@@ -41,7 +102,15 @@ async def main(page: flet.Page):
 
         async def pick_files_result(ex: flet.FilePickerResultEvent):
             if ex.files:
-                selected_files.value = ex.files[0].name
+                file_name = ex.files[0].name
+                file_path = f"/cv/{int(time.time())}/{file_name}"
+                await pick_files_dialog.upload_async(
+                    [flet.FilePickerUploadFile(file_name, upload_url=await page.get_upload_url_async(file_path, 600))]
+                )
+
+                global selected_pdf
+                selected_pdf = Path(os.getcwd(), "src/assets/uploads" + file_path)
+                selected_files.value = file_name
                 await selected_files.update_async()
 
         async def pick_files(ex):
@@ -50,8 +119,6 @@ async def main(page: flet.Page):
         pick_files_dialog = flet.FilePicker(on_result=pick_files_result)
         selected_files = flet.Text()
         page.overlay.append(pick_files_dialog)
-
-        await page.update_async()
 
         cv_input_container.controls = [
             flet.Row(
@@ -68,12 +135,21 @@ async def main(page: flet.Page):
 
         await page.update_async()
 
+    """
+    При нажатии на кнопку "Текст"
+    """
+
     async def on_text_select(e):
         cv_input_text_button.disabled = True
         cv_input_pdf_button.disabled = False
+        global selected_pdf
+        selected_pdf = None
         cv_input_container.controls = [flet.TextField(label="Текст резюме", multiline=True, max_lines=15)]
         await page.update_async()
 
+    """
+    Начальное состояние элементов на странице
+    """
     cv_input_text_button = flet.ElevatedButton(
         text="Текст",
         expand=True,
@@ -99,6 +175,7 @@ async def main(page: flet.Page):
 
     vacancy_input_container = flet.TextField(label="Текст вакансии", multiline=True, max_lines=15)
     cv_input_container = flet.Column(controls=[flet.TextField(label="Текст резюме", multiline=True, max_lines=15)])
+    submit_button = flet.Row(controls=[flet.FilledButton("Далее", on_click=on_submit)])
 
     main_page_controls = [
         flet.Container(
@@ -112,7 +189,7 @@ async def main(page: flet.Page):
         flet.Row(spacing=-0, controls=[cv_input_text_button, cv_input_pdf_button]),
         cv_input_container,
         flet.Divider(),
-        flet.FilledButton("Далее", on_click=on_submit),
+        submit_button,
     ]
 
     view = flet.Column(width=page.width / 2, controls=main_page_controls)
