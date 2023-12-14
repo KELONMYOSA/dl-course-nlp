@@ -1,2 +1,7 @@
 celery==5.3.6
 redis==5.0.1
+transformers
+langchain==0.0.350
+huggingface_hub
+bitsandbytes==0.41.3
+accelerate==0.25.0
