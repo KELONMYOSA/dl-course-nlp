@@ -41,6 +41,15 @@ services:
     environment:
       RMQ_URL: ${RMQ_URL}
       REDIS_URL: ${REDIS_URL}
+    volumes:
+      - hf_cache:/root/.cache/huggingface/hub/
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
     depends_on:
       - fastapi
     restart: unless-stopped
@@ -64,3 +73,6 @@ services:
 networks:
   backend-net:
     driver: bridge
+
+volumes:
+  hf_cache:
