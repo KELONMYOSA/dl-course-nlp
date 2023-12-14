@@ -1,4 +1,3 @@
-
 LEVEL_PROMPT = """You are an experienced HR at a large technology company, you give advice to candidates for the position of software developer.
 For the candidate's resume, which will be highlighted with triple backquotes You need to define the professional level of the candidate, you have to choose one of [Intern, Junior, Junior+, Middle, Middle+, Senior, Senior+, Team Lead] and give answer in one sentences.
 
@@ -98,11 +97,14 @@ Helpful answer:
 def get_candidates_prompt():
     return [LEVEL_PROMPT, EXP_PROMPT, SKILLS_PROMPT, EDU_PROMPT]
 
+
 def get_vacancies_prompt():
     return KEY_VACANCY_POMPT
 
+
 def get_recs_prompt():
     return RECS_PROMPT
+
 
 def get_score_prompt():
     return SCORE_PROMPT
