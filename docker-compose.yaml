@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:management-alpine
+    container_name: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RMQ_PASS}
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbit disk_free_limit 2147483648
+    restart: unless-stopped
+    networks:
+      - backend-net
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: unless-stopped
+    networks:
+      - backend-net
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: DockerfileFastapi
+    image: fastapi-backend
+    container_name: fastapi
+    depends_on:
+      - rabbitmq
+      - redis
+    restart: unless-stopped
+    networks:
+      - backend-net
+
+  celery:
+    build:
+      context: .
+      dockerfile: DockerfileCelery
+    image: celery-backend
+    container_name: celery
+    environment:
+      RMQ_URL: ${RMQ_URL}
+      REDIS_URL: ${REDIS_URL}
+    depends_on:
+      - fastapi
+    restart: unless-stopped
+    networks:
+      - backend-net
+
+  flet:
+    build:
+      context: .
+      dockerfile: DockerfileFlet
+    image: flet-frontend
+    container_name: flet
+    ports:
+      - "80:80"
+    depends_on:
+      - celery
+    restart: unless-stopped
+    networks:
+      - backend-net
+
+networks:
+  backend-net:
+    driver: bridge

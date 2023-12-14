@@ -5,7 +5,7 @@ from pathlib import Path
 
 import flet
 
-from src.utils import get_recs_pdf, get_recs_text
+from src.utils import get_recs_pdf_token, get_recs_result, get_recs_text_token
 
 
 async def main(page: flet.Page):
@@ -57,9 +57,17 @@ async def main(page: flet.Page):
 
         # Получаем результаты из модели
         if isinstance(cv_input_item, flet.TextField):
-            result = await get_recs_text(vacancy_input_container.value, cv_input_item.value)
+            task_id = await get_recs_text_token(vacancy_input_container.value, cv_input_item.value)
         else:
-            result = await get_recs_pdf(vacancy_input_container.value, selected_pdf)
+            task_id = await get_recs_pdf_token(vacancy_input_container.value, selected_pdf)
+
+        result = None
+        if task_id:
+            for retry in range(30):
+                result = await get_recs_result(task_id)
+                if result:
+                    break
+                await asyncio.sleep(1)
 
         # Если ошибка запроса
         if result is None:
@@ -76,15 +84,27 @@ async def main(page: flet.Page):
         submit_button.controls[0].disabled = False
         await page.clean_async()
         result_text = flet.TextField(label="Рекомендации", multiline=True, read_only=True, value=" ")
+        score_text = flet.Text("", size=50, text_align=flet.TextAlign.CENTER)
         await page.add_async(
             flet.Column(
-                width=page.width / 2, spacing=30, controls=[flet.FilledButton("Назад", on_click=on_back), result_text]
+                width=page.width / 2,
+                spacing=30,
+                controls=[
+                    flet.FilledButton("Назад", on_click=on_back),
+                    flet.Container(
+                        content=score_text,
+                        alignment=flet.alignment.center,
+                        height=80,
+                    ),
+                    result_text,
+                ],
             )
         )
 
         # Выводим посимвольно результат
         score = result["score"]
         text = result["recs"]
+        score_text.value = f"{round(score)}/100"
         cur_text = ""
         for char in text:
             await asyncio.sleep(0.01)

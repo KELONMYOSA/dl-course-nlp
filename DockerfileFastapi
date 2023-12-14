@@ -1,0 +1,14 @@
+FROM python:alpine
+
+RUN pip install poetry
+
+COPY ./backend/pyproject.toml /app/backend/pyproject.toml
+COPY ./backend/poetry.lock /app/backend/poetry.lock
+
+WORKDIR /app/backend
+RUN poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi
+
+COPY ./.env /app/.env
+COPY ./backend /app/backend
+
+CMD ["python", "main.py"]

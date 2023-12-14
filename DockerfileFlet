@@ -1,0 +1,15 @@
+FROM python:alpine
+
+RUN apk update && apk add --no-cache build-base
+RUN pip install poetry
+
+COPY ./frontend/pyproject.toml /app/frontend/pyproject.toml
+COPY ./frontend/poetry.lock /app/frontend/poetry.lock
+
+WORKDIR /app/frontend
+RUN poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi
+
+COPY ./.env /app/.env
+COPY ./frontend /app/frontend
+
+CMD ["python", "main.py"]
