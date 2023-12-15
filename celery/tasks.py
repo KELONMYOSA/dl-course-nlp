@@ -25,6 +25,6 @@ def process_recs(recs_form: dict) -> dict:
     candidate_info = get_candidate_info(agent_prompts, cv, llm)
     key_vacancy = get_vacancy_info(vacancy_prompt, vacancy, llm)
     recs_pred = get_recs(recs_prompt, candidate_info, key_vacancy, llm)
-    score = get_score(score_prompt, candidate_info, key_vacancy, recs_pred, llm)
+    score = float(get_score(score_prompt, candidate_info, key_vacancy, recs_pred, llm))
 
     return {"score": score, "recs": recs_pred}
